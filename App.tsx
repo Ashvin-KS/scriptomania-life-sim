@@ -460,7 +460,19 @@ Output ONLY the instruction text, no JSON, no code, no explanations.`;
   };
 
   const handleUpdateUserProfile = (updates: Partial<typeof userProfile>) => {
-    setUserProfile(prev => ({ ...prev, ...updates }));
+    const newProfile = { ...userProfile, ...updates };
+    setUserProfile(newProfile);
+
+    // Live update the current session's instruction to reflect profile changes immediately
+    const generated = generateSystemPrompt(
+      currentSession.characters || [],
+      currentSession.instructionId,
+      maxSpeakers,
+      minWords,
+      maxWords,
+      newProfile
+    );
+    updateCurrentSession({ customInstruction: generated });
   };
 
   const handleSend = async () => {
@@ -783,7 +795,7 @@ Output ONLY the instruction text, no JSON, no code, no explanations.`;
   };
 
   return (
-    <div className="relative w-full h-screen flex flex-col font-sans overflow-hidden bg-black">
+    <div className="relative w-full h-[100dvh] flex flex-col font-sans overflow-hidden bg-black">
 
       <Sidebar
         isOpen={isSidebarOpen}
@@ -1140,28 +1152,28 @@ Output ONLY the instruction text, no JSON, no code, no explanations.`;
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 mb-6 border-b border-white/10">
+            <div className="flex gap-2 mb-6 border-b border-white/10 flex-wrap md:flex-nowrap md:overflow-x-auto md:no-scrollbar">
               <button
                 onClick={() => setActiveSettingsTab('chat')}
-                className={`px-4 py-2 font-bold transition-all ${activeSettingsTab === 'chat' ? 'text-pink-400 border-b-2 border-pink-400' : 'text-white/50 hover:text-white/80'}`}
+                className={`px-4 py-2 font-bold transition-all whitespace-nowrap flex-shrink-0 ${activeSettingsTab === 'chat' ? 'text-pink-400 border-b-2 border-pink-400' : 'text-white/50 hover:text-white/80'}`}
               >
                 Chat Settings
               </button>
               <button
                 onClick={() => setActiveSettingsTab('api')}
-                className={`px-4 py-2 font-bold transition-all ${activeSettingsTab === 'api' ? 'text-pink-400 border-b-2 border-pink-400' : 'text-white/50 hover:text-white/80'}`}
+                className={`px-4 py-2 font-bold transition-all whitespace-nowrap flex-shrink-0 ${activeSettingsTab === 'api' ? 'text-pink-400 border-b-2 border-pink-400' : 'text-white/50 hover:text-white/80'}`}
               >
                 API Settings
               </button>
               <button
                 onClick={() => setActiveSettingsTab('templates')}
-                className={`px-4 py-2 font-bold transition-all ${activeSettingsTab === 'templates' ? 'text-pink-400 border-b-2 border-pink-400' : 'text-white/50 hover:text-white/80'}`}
+                className={`px-4 py-2 font-bold transition-all whitespace-nowrap flex-shrink-0 ${activeSettingsTab === 'templates' ? 'text-pink-400 border-b-2 border-pink-400' : 'text-white/50 hover:text-white/80'}`}
               >
                 Templates
               </button>
               <button
                 onClick={() => setActiveSettingsTab('profile')}
-                className={`px-4 py-2 font-bold transition-all ${activeSettingsTab === 'profile' ? 'text-pink-400 border-b-2 border-pink-400' : 'text-white/50 hover:text-white/80'}`}
+                className={`px-4 py-2 font-bold transition-all whitespace-nowrap flex-shrink-0 ${activeSettingsTab === 'profile' ? 'text-pink-400 border-b-2 border-pink-400' : 'text-white/50 hover:text-white/80'}`}
               >
                 User Profile
               </button>
@@ -1203,7 +1215,7 @@ Output ONLY the instruction text, no JSON, no code, no explanations.`;
                         onClick={() => {
                           const selected = allTemplates.find(i => i.id === currentSession.instructionId);
                           if (selected) {
-                            const generated = generateSystemPromptWithContent(currentSession.characters || [], selected.content, maxSpeakers, minWords, maxWords);
+                            const generated = generateSystemPromptWithContent(currentSession.characters || [], selected.content, maxSpeakers, minWords, maxWords, userProfile);
                             updateCurrentSession({ customInstruction: generated });
                           }
                         }}
@@ -1721,7 +1733,7 @@ Output ONLY the instruction text, no JSON, no code, no explanations.`;
                   <div>
                     <h3 className="text-lg font-bold text-white mb-4">Your Profile</h3>
                     <p className="text-white/70 text-sm mb-6">Your profile details are included in system instructions to personalize the story experience.</p>
-                    
+
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-bold mb-2">Your Name</label>
@@ -1733,7 +1745,7 @@ Output ONLY the instruction text, no JSON, no code, no explanations.`;
                           className="w-full bg-black/30 border border-white/20 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-bold mb-2">What you're famous for</label>
                         <input
@@ -1744,7 +1756,7 @@ Output ONLY the instruction text, no JSON, no code, no explanations.`;
                           className="w-full bg-black/30 border border-white/20 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-bold mb-2">Life details & interests</label>
                         <textarea
@@ -1810,7 +1822,7 @@ Output ONLY the instruction text, no JSON, no code, no explanations.`;
 
           {/* Chat Area */}
           <div className="flex-1 flex flex-col items-center justify-end overflow-hidden w-full relative">
-            <div className="w-full max-w-2xl h-full flex flex-col pointer-events-auto z-40 mt-24">
+            <div className="w-full max-w-2xl h-full flex flex-col pointer-events-auto z-40">
               <div
                 ref={chatContainerRef}
                 className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 scroll-smooth space-y-6 no-scrollbar mask-image-linear-to-b pb-20"

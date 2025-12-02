@@ -55,7 +55,7 @@ export const generateSystemPromptWithContent = (characters: Character[], templat
    - GOOD: Alex -> Mia -> Alex -> Jordan -> Mia -> Alex (End)
 - **INTERACTIVITY**: Characters MUST speak to EACH OTHER (bickering, agreeing, commanding), not just react to the situation.
    - **USE NAMES**: When speaking to another character, explicitly use their name (e.g., "That's not right, Mia!", "Good point, Jordan").
-- Generate MEDIUM dialogue chains (5-11 lines) to keep it punchy but lively.
+- Generate MEDIUM dialogue chains (5-1 lines) to keep it punchy but lively.
 - ENSURE ${characterNames} get equal speaking time overall.
 - IF the situation involves a specific character, that character MUST speak.
 `;
@@ -64,7 +64,7 @@ export const generateSystemPromptWithContent = (characters: Character[], templat
     // Add user profile context if available - always include for enhanced personalization
     let userContext = "";
     if (userProfile) {
-      userContext = `
+        userContext = `
 ≫≫ USER PROFILE ≪≪
 The user observing this story is:
 - Name: ${userProfile.name}

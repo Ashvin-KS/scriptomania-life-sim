@@ -5,6 +5,13 @@ export const fetchModels = async (endpoint?: string, apiKey?: string): Promise<s
   try {
     // If endpoint is provided, use it. Otherwise, return empty array.
     let baseUrl = endpoint ? endpoint.replace(/\/$/, '') : '';
+    
+    // Handle proxy paths for production deployment
+    if (baseUrl.includes('/api/nvidia')) {
+      // Replace local proxy path with actual NVIDIA API
+      baseUrl = 'https://integrate.api.nvidia.com/v1';
+    }
+    
     // Auto-fix for LM Studio common mistake
     if (baseUrl.includes(':1234') && !baseUrl.includes('/v1')) {
       baseUrl += '/v1';
@@ -80,6 +87,13 @@ export const generateStoryResponse = async (
 
     // Use provided endpoint or return error
     let baseUrl = apiEndpoint ? apiEndpoint.replace(/\/$/, '') : '';
+    
+    // Handle proxy paths for production deployment
+    if (baseUrl.includes('/api/nvidia')) {
+      // Replace local proxy path with actual NVIDIA API
+      baseUrl = 'https://integrate.api.nvidia.com/v1';
+    }
+    
     // Auto-fix for LM Studio common mistake
     if (baseUrl.includes(':1234') && !baseUrl.includes('/v1')) {
       baseUrl += '/v1';
