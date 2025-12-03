@@ -192,6 +192,11 @@ const App: React.FC = () => {
     localStorage.setItem('user_profile', JSON.stringify(userProfile));
   }, [userProfile]);
 
+  // Character Persistence
+  useEffect(() => {
+    localStorage.setItem('storymate_characters', JSON.stringify(allCharacters));
+  }, [allCharacters]);
+
   // Combine default and custom templates
   const allTemplates = useMemo(() => [...SYSTEM_INSTRUCTIONS, ...customTemplates], [customTemplates]);
 
