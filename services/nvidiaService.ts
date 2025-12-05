@@ -1,17 +1,34 @@
 import { StorySegment } from '../types';
 import { parsePartialJson } from '../utils/partialJsonParser';
 
+// NVIDIA models list - hardcoded because NVIDIA API doesn't support browser CORS for /models endpoint
+const NVIDIA_MODELS = [
+  "deepseek-ai/deepseek-r1-0528",
+  "deepseek-ai/deepseek-r1",
+  "meta/llama-3.3-70b-instruct",
+  "meta/llama-3.1-405b-instruct",
+  "meta/llama-3.1-70b-instruct",
+  "meta/llama-3.1-8b-instruct",
+  "nvidia/llama-3.1-nemotron-70b-instruct",
+  "mistralai/mistral-large-2-instruct",
+  "mistralai/mixtral-8x22b-instruct-v0.1",
+  "google/gemma-2-27b-it",
+  "qwen/qwen2.5-72b-instruct",
+  "qwen/qwq-32b",
+];
+
 export const fetchModels = async (endpoint?: string, apiKey?: string): Promise<string[]> => {
   try {
     // If endpoint is provided, use it. Otherwise, return empty array.
     let baseUrl = endpoint ? endpoint.replace(/\/$/, '') : '';
-    
-    // Handle proxy paths for production deployment
-    if (baseUrl.includes('/api/nvidia')) {
-      // Replace local proxy path with actual NVIDIA API
-      baseUrl = 'https://integrate.api.nvidia.com/v1';
+
+    // NVIDIA API doesn't support CORS for browser requests to /models
+    // Return hardcoded list for NVIDIA endpoints
+    if (baseUrl.includes('integrate.api.nvidia.com') || baseUrl.includes('/api/nvidia')) {
+      console.log("Using hardcoded NVIDIA models list (CORS workaround)");
+      return NVIDIA_MODELS;
     }
-    
+
     // Auto-fix for LM Studio common mistake
     if (baseUrl.includes(':1234') && !baseUrl.includes('/v1')) {
       baseUrl += '/v1';
@@ -87,13 +104,13 @@ export const generateStoryResponse = async (
 
     // Use provided endpoint or return error
     let baseUrl = apiEndpoint ? apiEndpoint.replace(/\/$/, '') : '';
-    
+
     // Handle proxy paths for production deployment
     if (baseUrl.includes('/api/nvidia')) {
       // Replace local proxy path with actual NVIDIA API
       baseUrl = 'https://integrate.api.nvidia.com/v1';
     }
-    
+
     // Auto-fix for LM Studio common mistake
     if (baseUrl.includes(':1234') && !baseUrl.includes('/v1')) {
       baseUrl += '/v1';
