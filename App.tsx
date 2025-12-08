@@ -108,10 +108,6 @@ const App: React.FC = () => {
   const [minWords, setMinWords] = useState(20);
   const [maxWords, setMaxWords] = useState(100);
   const [fontSize, setFontSize] = useState(16);
-  const [apiEndpoint, setApiEndpoint] = useState(() => {
-    const saved = localStorage.getItem('api_endpoint');
-    return saved || '';
-  });
   const [apiKey, setApiKey] = useState(() => {
     const saved = localStorage.getItem('api_key');
     return saved || '';
@@ -172,9 +168,6 @@ const App: React.FC = () => {
     localStorage.setItem('current_session_id', currentSessionId);
   }, [currentSessionId]);
 
-  useEffect(() => {
-    localStorage.setItem('api_endpoint', apiEndpoint);
-  }, [apiEndpoint]);
 
   useEffect(() => {
     localStorage.setItem('api_key', apiKey);
@@ -245,7 +238,7 @@ const App: React.FC = () => {
     if (showSettings) {
       const loadModels = async () => {
         setIsFetchingModels(true);
-        const models = await fetchModels(apiEndpoint, apiKey);
+        const models = await fetchModels(apiKey);
         setAvailableModels(models);
         setIsFetchingModels(false);
       };
@@ -385,7 +378,7 @@ Generate ONLY the content portion of a system instruction template. This should:
 
 Output ONLY the instruction text, no JSON, no code, no explanations.`;
 
-      const response = await fetch((apiEndpoint || '/api/nvidia') + '/chat/completions', {
+      const response = await fetch('/api/nvidia/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -431,7 +424,7 @@ Template content: ${generatedTemplateContent}
 Generate ONLY the narration text, no explanations or formatting.`;
 
     // Generate pre-narration asynchronously
-    fetch((apiEndpoint || '/api/nvidia') + '/chat/completions', {
+    fetch('/api/nvidia/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -641,11 +634,11 @@ Generate ONLY the narration text, no explanations or formatting.`;
         currentInstruction = generateSystemPrompt(sessionCharacters, currentSession.instructionId, maxSpeakers, minWords, maxWords, userProfile);
       }
 
-      // Resolve API configuration for this session
+      // Resolve API configuration for this session - now hardcoded to NVIDIA
       const effectiveConfig = resolveAPIConfig(
         currentSession.apiConfig,
         {
-          endpoint: apiEndpoint,
+          endpoint: '/api/nvidia', // Hardcoded to NVIDIA API
           apiKey,
           model,
           temperature,
@@ -678,7 +671,6 @@ Generate ONLY the narration text, no explanations or formatting.`;
         effectiveConfig.topP,
         effectiveConfig.maxTokens,
         currentInstruction,
-        effectiveConfig.endpoint,
         effectiveConfig.apiKey,
         effectiveConfig.model,
         (partial) => {
@@ -819,7 +811,6 @@ Generate ONLY the narration text, no explanations or formatting.`;
         topP,
         maxTokens,
         currentInstruction,
-        apiEndpoint,
         apiKey,
         model,
         (partial) => {
@@ -1586,57 +1577,30 @@ Generate ONLY the narration text, no explanations or formatting.`;
               {activeSettingsTab === 'api' && (
                 <div className="space-y-6">
 
-                  {/* Quick Provider Presets */}
+                  {/* NVIDIA API Configuration */}
                   <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-                    <label className="block text-xs font-bold text-white/50 mb-2 uppercase">Quick Presets</label>
+                    <label className="block text-xs font-bold text-white/50 mb-2 uppercase">NVIDIA Cloud API</label>
                     <div className="flex gap-2">
                       <button
                         onClick={() => {
-                          setApiEndpoint('/api/nvidia');
                           setApiKey('');
                         }}
                         className="flex-1 py-2 px-3 bg-green-900/30 hover:bg-green-900/50 border border-green-500/30 rounded-lg text-xs text-green-200 font-bold transition-all"
                       >
                         NVIDIA Cloud
                       </button>
-                      <button
-                        onClick={() => {
-                          setApiEndpoint('/api/ollama');
-                          setApiKey('ollama'); // Dummy key often needed
-                          setModel('llama3'); // Common default
-                        }}
-                        className="flex-1 py-2 px-3 bg-orange-900/30 hover:bg-orange-900/50 border border-orange-500/30 rounded-lg text-xs text-orange-200 font-bold transition-all"
-                      >
-                        Ollama (Local)
-                      </button>
-                      <button
-                        onClick={() => {
-                          setApiEndpoint('/api/lmstudio');
-                          setApiKey('lm-studio');
-                        }}
-                        className="flex-1 py-2 px-3 bg-blue-900/30 hover:bg-blue-900/50 border border-blue-500/30 rounded-lg text-xs text-blue-200 font-bold transition-all"
-                      >
-                        LM Studio
-                      </button>
                     </div>
                   </div>
 
-                  {/* API Endpoint & Model */}
+                  {/* API Key */}
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-bold mb-2">API Endpoint</label>
-                      <div className="flex gap-2 mb-4 ">
-                        <input
-                          type="text"
-                          value={apiEndpoint}
-                          onChange={(e) => setApiEndpoint(e.target.value)}
-                          placeholder="e.g., http://localhost:11434/v1"
-                          className="flex-1 bg-black/30 border border-white/20 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none"
-                        />
+                      <label className="block text-sm font-bold mb-2">NVIDIA API Key</label>
+                      <div className="flex gap-2 mb-4">
                         <button
                           onClick={async () => {
                             setIsFetchingModels(true);
-                            const models = await fetchModels(apiEndpoint, apiKey);
+                            const models = await fetchModels(apiKey);
                             setAvailableModels(models);
                             setIsFetchingModels(false);
                             if (models.length > 0 && !models.includes(model)) {
@@ -1646,7 +1610,7 @@ Generate ONLY the narration text, no explanations or formatting.`;
                           disabled={isFetchingModels}
                           className="bg-white/10 hover:bg-white/20 text-white px-4 rounded-xl font-bold transition-colors disabled:opacity-50"
                         >
-                          {isFetchingModels ? '...' : 'Fetch'}
+                          {isFetchingModels ? '...' : 'Fetch Models'}
                         </button>
                       </div>
 
