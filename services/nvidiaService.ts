@@ -132,33 +132,68 @@ export const generateStoryResponse = async (
                 jsonString = jsonString.replace(/^```\n?/, '');
               }
 
-              const partialSegment = parsePartialJson(jsonString);
-              onUpdate({ segment: partialSegment, reasoning: fullReasoning });
+              try {
+                const partialSegment = parsePartialJson(jsonString);
+                onUpdate({ segment: partialSegment, reasoning: fullReasoning });
+              } catch (parseError) {
+                // Silently ignore parse errors for partial content
+                console.debug('Partial JSON parse error (expected for streaming):', parseError);
+              }
             }
 
           } catch (e) {
-            // Ignore parse errors for individual chunks
+            // Ignore parse errors for individual chunks, but log for debugging
+            console.debug('Stream chunk parse error:', e, 'Line:', line);
           }
         }
       }
     }
 
-    // Final Parse
+    // Final Parse - with better error handling
     let jsonString = fullContent.trim();
-    const firstBrace = jsonString.indexOf('{');
-    const lastBrace = jsonString.lastIndexOf('}');
-
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      jsonString = jsonString.substring(firstBrace, lastBrace + 1);
-    } else {
-      if (jsonString.startsWith('```json')) {
-        jsonString = jsonString.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-      } else if (jsonString.startsWith('```')) {
-        jsonString = jsonString.replace(/^```\n?/, '').replace(/\n?```$/, '');
+    let parsed: any;
+    
+    try {
+      // Try to extract JSON from markdown code blocks first
+      if (jsonString.includes('```json')) {
+        const jsonMatch = jsonString.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          jsonString = jsonMatch[1];
+        }
+      } else if (jsonString.includes('```')) {
+        const codeMatch = jsonString.match(/```\s*([\s\S]*?)\s*```/);
+        if (codeMatch) {
+          jsonString = codeMatch[1];
+        }
       }
+
+      // Try to find the first valid JSON object
+      let firstBrace = jsonString.indexOf('{');
+      let lastBrace = jsonString.lastIndexOf('}');
+
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+      }
+
+      parsed = JSON.parse(jsonString);
+
+    } catch (parseError) {
+      console.error('Final JSON parse error:', parseError);
+      console.error('Attempted to parse:', jsonString);
+      
+      // Return a fallback segment with the raw content
+      return {
+        segment: {
+          content: [{ type: 'narration', text: fullContent }],
+          sceneVisualPrompt: "",
+          reasoning: fullReasoning,
+          narration: fullContent,
+          dialogue: []
+        },
+        reasoning: `Parse error: ${parseError.message}`
+      };
     }
 
-    const parsed = JSON.parse(jsonString);
     const storySegment: StorySegment = {
       content: parsed.content || [],
       sceneVisualPrompt: parsed.sceneVisualPrompt || "",
@@ -166,7 +201,6 @@ export const generateStoryResponse = async (
       narration: parsed.narration,
       dialogue: parsed.dialogue
     };
-
     // Normalize: if content is empty but narration/dialogue exist (old format), populate content
     if (!storySegment.content || storySegment.content.length === 0) {
       storySegment.content = [];
