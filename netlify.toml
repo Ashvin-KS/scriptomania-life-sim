@@ -1,0 +1,26 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/api/nvidia/*"
+  to = "https://integrate.api.nvidia.com/v1/:splat"
+  status = 200
+  headers = {Access-Control-Allow-Origin = "*"}
+
+[[redirects]]
+  from = "/api/lmstudio/*"
+  to = "http://localhost:1234/v1/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/ollama/*"
+  to = "http://localhost:11434/v1/:splat"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"

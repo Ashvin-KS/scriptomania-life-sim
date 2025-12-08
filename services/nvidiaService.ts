@@ -17,6 +17,16 @@ export const fetchModels = async (endpoint?: string, apiKey?: string): Promise<s
       baseUrl = '/api/ollama';
     }
     
+    // For production environments (like Netlify), we need special handling
+    // Check if we're in a production environment and trying to access external APIs
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+      // In production, only allow proxy paths or local servers
+      if (!baseUrl.startsWith('/api/') && !baseUrl.includes('localhost') && !baseUrl.includes('127.0.0.1')) {
+        console.warn("Production environment: Only proxy paths and local servers are supported");
+        return [];
+      }
+    }
+    
     // Auto-fix for LM Studio common mistake (only for non-proxy URLs)
     if (!baseUrl.startsWith('/api/') && baseUrl.includes(':1234') && !baseUrl.includes('/v1')) {
       baseUrl += '/v1';
@@ -64,6 +74,19 @@ export const fetchModels = async (endpoint?: string, apiKey?: string): Promise<s
       ];
     }
 
+    // Fallback for production environments where proxy might fail
+    if (endpoint && endpoint.includes('/api/nvidia')) {
+      console.warn("NVIDIA API proxy failed, returning common NVIDIA models");
+      return [
+        "nvidia/llama-3.1-nemotron-70b-instruct",
+        "nvidia/llama-3.1-nemotron-8b-instruct",
+        "nvidia/llama-3.3-nemotron-70b-instruct",
+        "deepseek-ai/deepseek-r1-0528",
+        "meta/llama-3.3-70b-instruct",
+        "mistralai/mistral-7b-instruct"
+      ];
+    }
+
     return [];
   }
 };
@@ -102,6 +125,15 @@ export const generateStoryResponse = async (
       baseUrl = '/api/lmstudio';
     } else if (baseUrl.includes('/api/ollama')) {
       baseUrl = '/api/ollama';
+    }
+    
+    // For production environments (like Netlify), we need special handling
+    // Check if we're in a production environment and trying to access external APIs
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+      // In production, only allow proxy paths or local servers
+      if (!baseUrl.startsWith('/api/') && !baseUrl.includes('localhost') && !baseUrl.includes('127.0.0.1')) {
+        throw new Error("Production environment: Only proxy paths and local servers are supported. Please use /api/nvidia, /api/lmstudio, or /api/ollama endpoints.");
+      }
     }
     
     // Auto-fix for LM Studio common mistake (only for non-proxy URLs)
