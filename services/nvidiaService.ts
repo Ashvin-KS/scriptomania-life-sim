@@ -1,11 +1,41 @@
 import { StorySegment } from '../types';
 import { parsePartialJson } from '../utils/partialJsonParser';
 
-export const fetchModels = async (apiKey?: string): Promise<string[]> => {
+export const fetchModels = async (endpoint?: string, apiKey?: string): Promise<string[]> => {
   try {
-    // Always use NVIDIA API through proxy
-    const baseUrl = '/api/nvidia';
+    // If endpoint is provided, use it. Otherwise, return empty array.
+    let baseUrl = endpoint ? endpoint.replace(/\/$/, '') : '/api/nvidia';
+
+    // Handle proxy paths - these should go through Vite's proxy configuration
+    if (baseUrl.includes('/api/nvidia')) {
+      // Use the proxy path directly, don't replace with actual API URL
+      // The Vite proxy will handle the routing to the actual NVIDIA API
+      baseUrl = '/api/nvidia';
+    } else if (baseUrl.includes('/api/lmstudio') || baseUrl.includes('/api/lm-studio')) {
+      baseUrl = '/api/lmstudio';
+    } else if (baseUrl.includes('/api/ollama')) {
+      baseUrl = '/api/ollama';
+    }
+
+    // For production environments (like Netlify), we need special handling
+    // Check if we're in a production environment and trying to access external APIs
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+      // In production, only allow proxy paths or local servers
+      if (!baseUrl.startsWith('/api/') && !baseUrl.includes('localhost') && !baseUrl.includes('127.0.0.1')) {
+        console.warn("Production environment: Only proxy paths and local servers are supported");
+        return [];
+      }
+    }
+
+    // Auto-fix for LM Studio common mistake (only for non-proxy URLs)
+    if (!baseUrl.startsWith('/api/') && baseUrl.includes(':1234') && !baseUrl.includes('/v1')) {
+      baseUrl += '/v1';
+    }
     const url = `${baseUrl}/models`;
+
+    if (!url) {
+      return [];
+    }
 
     const headers: Record<string, string> = {};
     if (apiKey) {
@@ -31,16 +61,33 @@ export const fetchModels = async (apiKey?: string): Promise<string[]> => {
   } catch (error) {
     console.error("Error fetching models:", error);
 
+    // Fallback for local servers that might fail CORS or OPTIONS but still work for chat
+    if (endpoint && (endpoint.includes('localhost') || endpoint.includes('127.0.0.1'))) {
+      console.warn("Local server fetch failed, returning default local model list");
+      return [
+        "llama3",
+        "mistral",
+        "gemma",
+        "qwen",
+        "deepseek-r1",
+        "local-model"
+      ];
+    }
+
     // Fallback for production environments where proxy might fail
-    console.warn("NVIDIA API proxy failed, returning common NVIDIA models");
-    return [
-      "nvidia/llama-3.1-nemotron-70b-instruct",
-      "nvidia/llama-3.1-nemotron-8b-instruct",
-      "nvidia/llama-3.3-nemotron-70b-instruct",
-      "deepseek-ai/deepseek-r1-0528",
-      "meta/llama-3.3-70b-instruct",
-      "mistralai/mistral-7b-instruct"
-    ];
+    if (endpoint && endpoint.includes('/api/nvidia')) {
+      console.warn("NVIDIA API proxy failed, returning common NVIDIA models");
+      return [
+        "nvidia/llama-3.1-nemotron-70b-instruct",
+        "nvidia/llama-3.1-nemotron-8b-instruct",
+        "nvidia/llama-3.3-nemotron-70b-instruct",
+        "deepseek-ai/deepseek-r1-0528",
+        "meta/llama-3.3-70b-instruct",
+        "mistralai/mistral-7b-instruct"
+      ];
+    }
+
+    return [];
   }
 };
 
@@ -51,6 +98,7 @@ export const generateStoryResponse = async (
   top_p: number = 0.7,
   max_tokens: number = 63024,
   systemInstructionOverride?: string,
+  apiEndpoint?: string,
   apiKey?: string,
   model: string = "deepseek-ai/deepseek-r1-0528",
   onUpdate?: (partial: { segment: StorySegment; reasoning?: string }) => void
@@ -65,9 +113,38 @@ export const generateStoryResponse = async (
       { role: 'user', content: userMessage }
     ];
 
-    // Always use NVIDIA API through proxy
-    const baseUrl = '/api/nvidia';
+    // Use provided endpoint or return error
+    let baseUrl = apiEndpoint ? apiEndpoint.replace(/\/$/, '') : '/api/nvidia';
+
+    // Handle proxy paths - these should go through Vite's proxy configuration
+    if (baseUrl.includes('/api/nvidia')) {
+      // Use the proxy path directly, don't replace with actual API URL
+      // The Vite proxy will handle the routing to the actual NVIDIA API
+      baseUrl = '/api/nvidia';
+    } else if (baseUrl.includes('/api/lmstudio') || baseUrl.includes('/api/lm-studio')) {
+      baseUrl = '/api/lmstudio';
+    } else if (baseUrl.includes('/api/ollama')) {
+      baseUrl = '/api/ollama';
+    }
+
+    // For production environments (like Netlify), we need special handling
+    // Check if we're in a production environment and trying to access external APIs
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+      // In production, only allow proxy paths or local servers
+      if (!baseUrl.startsWith('/api/') && !baseUrl.includes('localhost') && !baseUrl.includes('127.0.0.1')) {
+        throw new Error("Production environment: Only proxy paths and local servers are supported. Please use /api/nvidia, /api/lmstudio, or /api/ollama endpoints.");
+      }
+    }
+
+    // Auto-fix for LM Studio common mistake (only for non-proxy URLs)
+    if (!baseUrl.startsWith('/api/') && baseUrl.includes(':1234') && !baseUrl.includes('/v1')) {
+      baseUrl += '/v1';
+    }
     const url = `${baseUrl}/chat/completions`;
+
+    if (!url) {
+      throw new Error("No API endpoint provided. Please configure your API settings.");
+    }
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
@@ -132,68 +209,33 @@ export const generateStoryResponse = async (
                 jsonString = jsonString.replace(/^```\n?/, '');
               }
 
-              try {
-                const partialSegment = parsePartialJson(jsonString);
-                onUpdate({ segment: partialSegment, reasoning: fullReasoning });
-              } catch (parseError) {
-                // Silently ignore parse errors for partial content
-                console.debug('Partial JSON parse error (expected for streaming):', parseError);
-              }
+              const partialSegment = parsePartialJson(jsonString);
+              onUpdate({ segment: partialSegment, reasoning: fullReasoning });
             }
 
           } catch (e) {
-            // Ignore parse errors for individual chunks, but log for debugging
-            console.debug('Stream chunk parse error:', e, 'Line:', line);
+            // Ignore parse errors for individual chunks
           }
         }
       }
     }
 
-    // Final Parse - with better error handling
+    // Final Parse
     let jsonString = fullContent.trim();
-    let parsed: any;
-    
-    try {
-      // Try to extract JSON from markdown code blocks first
-      if (jsonString.includes('```json')) {
-        const jsonMatch = jsonString.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch) {
-          jsonString = jsonMatch[1];
-        }
-      } else if (jsonString.includes('```')) {
-        const codeMatch = jsonString.match(/```\s*([\s\S]*?)\s*```/);
-        if (codeMatch) {
-          jsonString = codeMatch[1];
-        }
+    const firstBrace = jsonString.indexOf('{');
+    const lastBrace = jsonString.lastIndexOf('}');
+
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+    } else {
+      if (jsonString.startsWith('```json')) {
+        jsonString = jsonString.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      } else if (jsonString.startsWith('```')) {
+        jsonString = jsonString.replace(/^```\n?/, '').replace(/\n?```$/, '');
       }
-
-      // Try to find the first valid JSON object
-      let firstBrace = jsonString.indexOf('{');
-      let lastBrace = jsonString.lastIndexOf('}');
-
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        jsonString = jsonString.substring(firstBrace, lastBrace + 1);
-      }
-
-      parsed = JSON.parse(jsonString);
-
-    } catch (parseError) {
-      console.error('Final JSON parse error:', parseError);
-      console.error('Attempted to parse:', jsonString);
-      
-      // Return a fallback segment with the raw content
-      return {
-        segment: {
-          content: [{ type: 'narration', text: fullContent }],
-          sceneVisualPrompt: "",
-          reasoning: fullReasoning,
-          narration: fullContent,
-          dialogue: []
-        },
-        reasoning: `Parse error: ${parseError.message}`
-      };
     }
 
+    const parsed = JSON.parse(jsonString);
     const storySegment: StorySegment = {
       content: parsed.content || [],
       sceneVisualPrompt: parsed.sceneVisualPrompt || "",
@@ -201,6 +243,7 @@ export const generateStoryResponse = async (
       narration: parsed.narration,
       dialogue: parsed.dialogue
     };
+
     // Normalize: if content is empty but narration/dialogue exist (old format), populate content
     if (!storySegment.content || storySegment.content.length === 0) {
       storySegment.content = [];
@@ -224,9 +267,10 @@ export const generateStoryResponse = async (
     let errorMessage = error.message || 'Unknown error';
     let errorDetails = JSON.stringify(error);
 
-    // Since we only support NVIDIA API now, provide specific NVIDIA error message
-    errorMessage = `NVIDIA API Error: ${errorMessage}. Please check your API key and ensure the NVIDIA API is accessible.`;
-    errorDetails += " | Hint: Make sure you have a valid NVIDIA API key configured in settings.";
+    if (apiEndpoint && (apiEndpoint.includes('localhost') || apiEndpoint.includes('127.0.0.1'))) {
+      errorMessage = `Local Server Error: ${errorMessage}. Ensure your local server (Ollama/LM Studio) is running and CORS is enabled.`;
+      errorDetails += " | Hint: For Ollama, set OLLAMA_ORIGINS='*' env var. For LM Studio, enable CORS in settings.";
+    }
 
     return {
       segment: {

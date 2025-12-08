@@ -108,6 +108,7 @@ const App: React.FC = () => {
   const [minWords, setMinWords] = useState(20);
   const [maxWords, setMaxWords] = useState(100);
   const [fontSize, setFontSize] = useState(16);
+
   const [apiKey, setApiKey] = useState(() => {
     const saved = localStorage.getItem('api_key');
     return saved || '';
@@ -167,6 +168,7 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('current_session_id', currentSessionId);
   }, [currentSessionId]);
+
 
 
   useEffect(() => {
@@ -238,7 +240,7 @@ const App: React.FC = () => {
     if (showSettings) {
       const loadModels = async () => {
         setIsFetchingModels(true);
-        const models = await fetchModels(apiKey);
+        const models = await fetchModels(undefined, apiKey);
         setAvailableModels(models);
         setIsFetchingModels(false);
       };
@@ -282,7 +284,7 @@ const App: React.FC = () => {
       // Replace character placeholders in pre-narration
       const characterNames = selectedChars.map(c => c.name).join(', ');
       const preNarrationText = selectedTemplate.preNarration.replace(/{{CHARACTERS}}/g, characterNames);
-      
+
       const preNarrationMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'model',
@@ -328,7 +330,7 @@ const App: React.FC = () => {
       // Replace character placeholders in pre-narration
       const characterNames = selectedChars.map(c => c.name).join(', ');
       const preNarrationText = selectedTemplate.preNarration.replace(/{{CHARACTERS}}/g, characterNames);
-      
+
       const preNarrationMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'model',
@@ -438,38 +440,38 @@ Generate ONLY the narration text, no explanations or formatting.`;
         stream: false
       })
     })
-    .then(response => response.json())
-    .then(data => {
-      const preNarration = data.choices[0]?.message?.content?.trim() || '';
-      
-      const newTemplate = {
-        id: `custom_${Date.now()}`,
-        label: newTemplateLabel,
-        content: generatedTemplateContent,
-        preNarration: preNarration || `The scene is set for ${newTemplateLabel}. {{CHARACTERS}} find themselves in a compelling situation that promises interesting interactions.`
-      };
+      .then(response => response.json())
+      .then(data => {
+        const preNarration = data.choices[0]?.message?.content?.trim() || '';
 
-      setCustomTemplates(prev => [...prev, newTemplate]);
-      setIsCreatingTemplate(false);
-      setNewTemplateLabel('');
-      setNewTemplatePrompt('');
-      setGeneratedTemplateContent('');
-    })
-    .catch(error => {
-      console.error('Pre-narration generation failed:', error);
-      // Save template without pre-narration as fallback
-      const newTemplate = {
-        id: `custom_${Date.now()}`,
-        label: newTemplateLabel,
-        content: generatedTemplateContent
-      };
+        const newTemplate = {
+          id: `custom_${Date.now()}`,
+          label: newTemplateLabel,
+          content: generatedTemplateContent,
+          preNarration: preNarration || `The scene is set for ${newTemplateLabel}. {{CHARACTERS}} find themselves in a compelling situation that promises interesting interactions.`
+        };
 
-      setCustomTemplates(prev => [...prev, newTemplate]);
-      setIsCreatingTemplate(false);
-      setNewTemplateLabel('');
-      setNewTemplatePrompt('');
-      setGeneratedTemplateContent('');
-    });
+        setCustomTemplates(prev => [...prev, newTemplate]);
+        setIsCreatingTemplate(false);
+        setNewTemplateLabel('');
+        setNewTemplatePrompt('');
+        setGeneratedTemplateContent('');
+      })
+      .catch(error => {
+        console.error('Pre-narration generation failed:', error);
+        // Save template without pre-narration as fallback
+        const newTemplate = {
+          id: `custom_${Date.now()}`,
+          label: newTemplateLabel,
+          content: generatedTemplateContent
+        };
+
+        setCustomTemplates(prev => [...prev, newTemplate]);
+        setIsCreatingTemplate(false);
+        setNewTemplateLabel('');
+        setNewTemplatePrompt('');
+        setGeneratedTemplateContent('');
+      });
   };
 
   const handleDeleteTemplate = (id: string) => {
@@ -634,11 +636,11 @@ Generate ONLY the narration text, no explanations or formatting.`;
         currentInstruction = generateSystemPrompt(sessionCharacters, currentSession.instructionId, maxSpeakers, minWords, maxWords, userProfile);
       }
 
-      // Resolve API configuration for this session - now hardcoded to NVIDIA
+      // Resolve API configuration for this session
       const effectiveConfig = resolveAPIConfig(
         currentSession.apiConfig,
         {
-          endpoint: '/api/nvidia', // Hardcoded to NVIDIA API
+          endpoint: undefined,
           apiKey,
           model,
           temperature,
@@ -671,6 +673,7 @@ Generate ONLY the narration text, no explanations or formatting.`;
         effectiveConfig.topP,
         effectiveConfig.maxTokens,
         currentInstruction,
+        undefined,
         effectiveConfig.apiKey,
         effectiveConfig.model,
         (partial) => {
@@ -811,6 +814,7 @@ Generate ONLY the narration text, no explanations or formatting.`;
         topP,
         maxTokens,
         currentInstruction,
+        undefined,
         apiKey,
         model,
         (partial) => {
@@ -1577,42 +1581,27 @@ Generate ONLY the narration text, no explanations or formatting.`;
               {activeSettingsTab === 'api' && (
                 <div className="space-y-6">
 
-                  {/* NVIDIA API Configuration */}
-                  <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-                    <label className="block text-xs font-bold text-white/50 mb-2 uppercase">NVIDIA Cloud API</label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setApiKey('');
-                        }}
-                        className="flex-1 py-2 px-3 bg-green-900/30 hover:bg-green-900/50 border border-green-500/30 rounded-lg text-xs text-green-200 font-bold transition-all"
-                      >
-                        NVIDIA Cloud
-                      </button>
-                    </div>
-                  </div>
+                  {/* Quick Provider Presets */}
 
-                  {/* API Key */}
+
+                  {/* API Endpoint & Model */}
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-bold mb-2">NVIDIA API Key</label>
-                      <div className="flex gap-2 mb-4">
-                        <button
-                          onClick={async () => {
-                            setIsFetchingModels(true);
-                            const models = await fetchModels(apiKey);
-                            setAvailableModels(models);
-                            setIsFetchingModels(false);
-                            if (models.length > 0 && !models.includes(model)) {
-                              setModel(models[0]);
-                            }
-                          }}
-                          disabled={isFetchingModels}
-                          className="bg-white/10 hover:bg-white/20 text-white px-4 rounded-xl font-bold transition-colors disabled:opacity-50"
-                        >
-                          {isFetchingModels ? '...' : 'Fetch Models'}
-                        </button>
-                      </div>
+                      <button
+                        onClick={async () => {
+                          setIsFetchingModels(true);
+                          const models = await fetchModels(undefined, apiKey);
+                          setAvailableModels(models);
+                          setIsFetchingModels(false);
+                          if (models.length > 0 && !models.includes(model)) {
+                            setModel(models[0]);
+                          }
+                        }}
+                        disabled={isFetchingModels}
+                        className="bg-white/10 hover:bg-white/20 text-white px-4 rounded-xl font-bold transition-colors disabled:opacity-50 w-full mb-4 py-2"
+                      >
+                        {isFetchingModels ? 'Fetching Models...' : 'Fetch Available Models'}
+                      </button>
 
                       <label className="block text-sm font-bold mb-2">API Key (Optional)</label>
                       <input
